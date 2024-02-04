@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:blur_approximations/src/algorithms/gaussian_2d_algorithm.dart';
@@ -45,7 +46,7 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     radius.addListener(() { _asyncMethod(); });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      radius.value = 2.0;
+      radius.value = 20.0;
     });
   }
 
@@ -69,7 +70,7 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      backgroundColor: Colors.grey,
+      backgroundColor: Colors.grey.shade300,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -117,7 +118,10 @@ class _MyHomePageState extends State<MyHomePage> {
                   onChanged: (value) {
                     radius.value = value;
                   },
+                  activeColor: Colors.green.shade800,
+                  inactiveColor: Colors.green.shade200,
                 ),
+                Text('${radius.value}'),
               ],
             ),
           ],
@@ -125,6 +129,27 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
   }
+}
+
+void centerText(
+    Canvas canvas,
+    Offset position,
+    String s,
+    {bool above = true,
+      required Color color}
+    ) {
+  TextSpan span = TextSpan(
+    text: s,
+    style: TextStyle(color: color),
+  );
+  TextPainter painter = TextPainter(
+    text: span,
+    textDirection: TextDirection.ltr,
+  );
+  painter.layout();
+  double x = position.dx - painter.width * 0.5;
+  double y = position.dy - (above ? painter.height : 0);
+  painter.paint(canvas, Offset(x, y));
 }
 
 class _ResultPainter extends CustomPainter {
@@ -146,6 +171,11 @@ class _ResultPainter extends CustomPainter {
           canvas.drawRect(Rect.fromLTWH(xi.toDouble(), yi.toDouble(), 1, 1), paint);
         }
       }
+      double elapsed = result!.computeTime.inMicroseconds / 1000.0;
+      centerText(
+        canvas, Offset(size.width * 0.5, 0), '$elapsed ms',
+        color: Colors.blue.shade800,
+      );
     }
   }
 
@@ -167,13 +197,27 @@ class _DiffResultPainter extends CustomPainter {
       var bufA = resultA!.result;
       var bufB = resultB!.result;
       Paint paint = Paint();
+      int maxDiff = 0;
+      int totalDiff = 0;
       for (int yi = 0; yi < h; yi++) {
         for (int xi = 0; xi < w; xi++) {
-          int c = 255 - (bufA[yi * w + xi] - bufB[yi * w + xi]).abs();
-          paint.color = Color.fromARGB(0xff, 0xff, c, 0xff);
+          int diff = (bufA[yi * w + xi] - bufB[yi * w + xi]).abs();
+          maxDiff = max(maxDiff, diff);
+          totalDiff += diff;
+          paint.color = Color.fromARGB(0xff, 0xff, 255 - diff, 0xff);
           canvas.drawRect(Rect.fromLTWH(xi.toDouble(), yi.toDouble(), 1, 1), paint);
         }
       }
+      centerText(
+        canvas, Offset(size.width * 0.5, 0), 'max diff = $maxDiff',
+        color: Colors.blue.shade800,
+      );
+      double average = (1000 * totalDiff / (w * h)).round() / 1000.0;
+      centerText(
+        canvas, Offset(size.width * 0.5, size.height), 'abg diff = $average',
+        above: false,
+        color: Colors.blue.shade800,
+      );
     }
   }
 

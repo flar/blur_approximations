@@ -7,8 +7,11 @@ import 'package:blur_approximations/src/test_case.dart';
 abstract class BlurAlgorithm {
   Future<BlurResult> compute(TestCase testCase) async {
     Uint8List output = Uint8List(testCase.sampleFieldLength);
+    Stopwatch timer = Stopwatch();
+    timer.start();
     computeOutput(testCase, output);
-    return BlurResult(testCase: testCase, result: output);
+    timer.stop();
+    return BlurResult(testCase: testCase, result: output, computeTime: timer.elapsed);
   }
 
   @protected void computeOutput(TestCase testCase, Uint8List output);
