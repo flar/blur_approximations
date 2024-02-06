@@ -8,6 +8,8 @@ import 'package:blur_approximations/src/test_case.dart';
 class Gaussian2DAlgorithm extends BlurAlgorithm {
   static final double kSqrtTwoPi = sqrt(2.0 * pi);
 
+  @override String get name => 'Gaussian';
+
   double gaussianCoefficient(double x, double sigma) {
     var variance = sigma * sigma;
     return exp(-0.5 * x * x / variance) / (kSqrtTwoPi * sigma);

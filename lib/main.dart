@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui' as ui;
 
+import 'package:blur_approximations/src/algorithms/even_wallace_half_closed_form_algorithm.dart';
 import 'package:blur_approximations/src/algorithms/gaussian_2d_algorithm.dart';
 import 'package:blur_approximations/src/algorithms/raph_levien_squircle_algorithm.dart';
 import 'package:blur_approximations/src/blur_result.dart';
@@ -40,6 +41,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   BlurResult? refResult;
   BlurResult? sqResult;
+  BlurResult? evanResult;
 
   @override
   void initState() {
@@ -61,6 +63,10 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       sqResult = sq;
     });
+    var evan = await EvanWallaceHalfClosedFormAlgorithm().compute(tc);
+    setState(() {
+      evanResult = evan;
+    });
   }
 
   @override
@@ -73,7 +79,7 @@ class _MyHomePageState extends State<MyHomePage> {
       backgroundColor: Colors.grey.shade300,
       body: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -103,6 +109,39 @@ class _MyHomePageState extends State<MyHomePage> {
                       : Size(
                     sqResult!.testCase.sampleFieldWidth.toDouble(),
                     sqResult!.testCase.sampleFieldHeight.toDouble(),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20,),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                CustomPaint(
+                  painter: _ResultPainter(result: refResult),
+                  size: refResult == null
+                      ? const Size(20, 20)
+                      : Size(
+                    refResult!.testCase.sampleFieldWidth.toDouble(),
+                    refResult!.testCase.sampleFieldHeight.toDouble(),
+                  ),
+                ),
+                CustomPaint(
+                  painter: _DiffResultPainter(resultA: refResult, resultB: evanResult),
+                  size: refResult == null || evanResult == null
+                      ? const Size(20, 20)
+                      : Size(
+                    refResult!.testCase.sampleFieldWidth.toDouble(),
+                    refResult!.testCase.sampleFieldHeight.toDouble(),
+                  ),
+                ),
+                CustomPaint(
+                  painter: _ResultPainter(result: evanResult),
+                  size: evanResult == null
+                      ? const Size(20, 20)
+                      : Size(
+                    evanResult!.testCase.sampleFieldWidth.toDouble(),
+                    evanResult!.testCase.sampleFieldHeight.toDouble(),
                   ),
                 ),
               ],
@@ -176,6 +215,11 @@ class _ResultPainter extends CustomPainter {
         canvas, Offset(size.width * 0.5, 0), '$elapsed ms',
         color: Colors.blue.shade800,
       );
+      centerText(
+        canvas, Offset(size.width * 0.5, size.height), result!.algorithm.name,
+        above: false,
+        color: Colors.blue.shade800,
+      );
     }
   }
 
@@ -214,7 +258,7 @@ class _DiffResultPainter extends CustomPainter {
       );
       double average = (1000 * totalDiff / (w * h)).round() / 1000.0;
       centerText(
-        canvas, Offset(size.width * 0.5, size.height), 'abg diff = $average',
+        canvas, Offset(size.width * 0.5, size.height), 'avg diff = $average',
         above: false,
         color: Colors.blue.shade800,
       );

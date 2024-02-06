@@ -5,6 +5,8 @@ import 'package:blur_approximations/src/blur_algorithm.dart';
 import 'package:blur_approximations/src/test_case.dart';
 
 class RaphLevienSquircleAlgorithm extends BlurAlgorithm {
+  @override String get name => 'Raph Levien Squircle';
+
   static final double kTwoOverSqrtPi = 2.0 / sqrt(pi);
 
   static double hypotenuse(double x, double y) {

@@ -11,8 +11,15 @@ abstract class BlurAlgorithm {
     timer.start();
     computeOutput(testCase, output);
     timer.stop();
-    return BlurResult(testCase: testCase, result: output, computeTime: timer.elapsed);
+    return BlurResult(
+      algorithm: this,
+      testCase: testCase,
+      result: output,
+      computeTime: timer.elapsed,
+    );
   }
+
+  String get name;
 
   @protected void computeOutput(TestCase testCase, Uint8List output);
 }
