@@ -5,6 +5,8 @@ import 'package:blur_approximations/src/blur_algorithm.dart';
 import 'package:blur_approximations/src/test_case.dart';
 
 class RaphLevienSquircleAlgorithm extends BlurAlgorithm {
+  static final double kTwoOverSqrtPi = 2.0 / sqrt(pi);
+
   static double hypotenuse(double x, double y) {
     return sqrt(x * x + y * y);
   }
@@ -15,6 +17,7 @@ class RaphLevienSquircleAlgorithm extends BlurAlgorithm {
 
   // use crate::math::compute_erf7;
   static double computeErf7(double x) {
+    x *= kTwoOverSqrtPi;
     var xx = x * x;
     x = x + (0.24295 + (0.03395 + 0.0104 * xx) * xx) * (x * xx);
     return x / sqrt(1.0 + x * x);
