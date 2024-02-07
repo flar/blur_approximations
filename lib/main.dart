@@ -7,6 +7,7 @@ import 'package:blur_approximations/src/algorithms/raph_levien_squircle_algorith
 import 'package:blur_approximations/src/blur_result.dart';
 import 'package:blur_approximations/src/round_rect.dart';
 import 'package:blur_approximations/src/test_case.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -18,11 +19,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       title: 'Flutter Demo',
-      theme: ThemeData(
-      ),
-      home: const MyHomePage(title: 'Blur algorithm test bench'),
+      home: MyHomePage(title: 'Blur algorithm test bench'),
     );
   }
 }
@@ -38,6 +37,10 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   ValueNotifier<double> radius = ValueNotifier(1);
+  ValueNotifier<double> rectWidth = ValueNotifier(100);
+  ValueNotifier<double> rectHeight = ValueNotifier(100);
+  ValueNotifier<double> cornerWidth = ValueNotifier(10);
+  ValueNotifier<double> cornerHeight = ValueNotifier(10);
 
   BlurResult? refResult;
   BlurResult? sqResult;
@@ -52,31 +55,97 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  void makeBlurImage(BlurResult blur) {
+    int w = blur.testCase.sampleFieldWidth;
+    int h = blur.testCase.sampleFieldHeight;
+    int len = blur.testCase.sampleFieldLength;
+    Uint8List output = blur.result;
+    Uint8List pixels = Uint8List(len * 4);
+    for (int i = 0; i < len; i++) {
+      int gray = 255 - output[i];
+      pixels[i * 4]     = gray;  // red
+      pixels[i * 4 + 1] = gray;  // green
+      pixels[i * 4 + 2] = gray;  // blue
+      pixels[i * 4 + 3] = 0xff;  // alpha
+    }
+    ui.decodeImageFromPixels(pixels, w, h, ui.PixelFormat.rgba8888, (result) {
+      setState(() {
+        blur.image = result;
+      });
+    });
+  }
+
+  void makeDiffImage(BlurResult blur, BlurResult ref) {
+    int w = blur.testCase.sampleFieldWidth;
+    int h = blur.testCase.sampleFieldHeight;
+    int len = blur.testCase.sampleFieldLength;
+    Uint8List output = blur.result;
+    Uint8List reference = ref.result;
+    Uint8List pixels = Uint8List(len * 4);
+    int minDiff = 0;
+    int maxDiff = 0;
+    int totalDiff = 0;
+    for (int i = 0; i < len; i++) {
+      int diff = output[i] - reference[i];
+      minDiff = min(minDiff, diff);
+      maxDiff = max(maxDiff, diff);
+      totalDiff += diff.abs();
+      if (diff < 0) {
+        pixels[i * 4]     = 0xff;         // red
+        pixels[i * 4 + 1] = 0xff + diff;  // green
+        pixels[i * 4 + 2] = 0xff + diff;  // blue
+      } else {
+        pixels[i * 4]     = 0xff - diff;  // red
+        pixels[i * 4 + 1] = 0xff - diff;  // green
+        pixels[i * 4 + 2] = 0xff;         // blue
+      }
+      pixels[i * 4 + 3] = 0xff;  // alpha
+    }
+    ui.decodeImageFromPixels(pixels, w, h, ui.PixelFormat.rgba8888, (result) {
+      setState(() {
+        blur.refDiffImage = result;
+        blur.minDiff = minDiff;
+        blur.maxDiff = maxDiff;
+        blur.avgDiff = (1000 * totalDiff / len).round() / 1000.0;
+      });
+    });
+  }
+
   void _asyncMethod() async {
-    RoundRect rr = RoundRect(rectSize: const Size(100.0, 100.0), cornerRadii: const Size(10, 10));
+    RoundRect rr = RoundRect(
+      rectSize: Size(rectWidth.value, rectHeight.value),
+      cornerRadii: Size(cornerWidth.value, cornerHeight.value),
+    );
     TestCase tc = TestCase(roundRect: rr, blurSigmas: Size(radius.value, radius.value));
     var ref = await Gaussian2DAlgorithm().compute(tc);
     setState(() {
       refResult = ref;
     });
+    makeBlurImage(ref);
     var sq = await RaphLevienSquircleAlgorithm().compute(tc);
     setState(() {
       sqResult = sq;
     });
+    makeBlurImage(sq);
+    makeDiffImage(sq, ref);
     var evan = await EvanWallaceHalfClosedFormAlgorithm().compute(tc);
     setState(() {
       evanResult = evan;
     });
+    makeBlurImage(evan);
+    makeDiffImage(evan, ref);
   }
 
   @override
   Widget build(BuildContext context) {
+    // big enough for any of the results for any of the possible parameters
+    // 100 x 100 round rect + 20*3 padding on all sides
+    Size resultSize = const Size(220, 220);
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      backgroundColor: Colors.grey.shade300,
+      backgroundColor: Colors.grey.shade200,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -86,63 +155,32 @@ class _MyHomePageState extends State<MyHomePage> {
               children: <Widget>[
                 CustomPaint(
                   painter: _ResultPainter(result: refResult),
-                  size: refResult == null
-                      ? const Size(20, 20)
-                      : Size(
-                    refResult!.testCase.sampleFieldWidth.toDouble(),
-                    refResult!.testCase.sampleFieldHeight.toDouble(),
-                  ),
+                  size: resultSize,
                 ),
                 CustomPaint(
-                  painter: _DiffResultPainter(resultA: refResult, resultB: sqResult),
-                  size: refResult == null || sqResult == null
-                      ? const Size(20, 20)
-                      : Size(
-                    refResult!.testCase.sampleFieldWidth.toDouble(),
-                    refResult!.testCase.sampleFieldHeight.toDouble(),
-                  ),
+                  painter: _DiffResultPainter(result: sqResult),
+                  size: resultSize,
                 ),
                 CustomPaint(
                   painter: _ResultPainter(result: sqResult),
-                  size: sqResult == null
-                      ? const Size(20, 20)
-                      : Size(
-                    sqResult!.testCase.sampleFieldWidth.toDouble(),
-                    sqResult!.testCase.sampleFieldHeight.toDouble(),
-                  ),
+                  size: resultSize,
                 ),
               ],
             ),
-            const SizedBox(height: 20,),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
                 CustomPaint(
                   painter: _ResultPainter(result: refResult),
-                  size: refResult == null
-                      ? const Size(20, 20)
-                      : Size(
-                    refResult!.testCase.sampleFieldWidth.toDouble(),
-                    refResult!.testCase.sampleFieldHeight.toDouble(),
-                  ),
+                  size: resultSize,
                 ),
                 CustomPaint(
-                  painter: _DiffResultPainter(resultA: refResult, resultB: evanResult),
-                  size: refResult == null || evanResult == null
-                      ? const Size(20, 20)
-                      : Size(
-                    refResult!.testCase.sampleFieldWidth.toDouble(),
-                    refResult!.testCase.sampleFieldHeight.toDouble(),
-                  ),
+                  painter: _DiffResultPainter(result: evanResult),
+                  size: resultSize,
                 ),
                 CustomPaint(
                   painter: _ResultPainter(result: evanResult),
-                  size: evanResult == null
-                      ? const Size(20, 20)
-                      : Size(
-                    evanResult!.testCase.sampleFieldWidth.toDouble(),
-                    evanResult!.testCase.sampleFieldHeight.toDouble(),
-                  ),
+                  size: resultSize,
                 ),
               ],
             ),
@@ -154,6 +192,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   value: radius.value,
                   min: 0.1,
                   max: 20.0,
+                  divisions: 199,
                   onChanged: (value) {
                     radius.value = value;
                   },
@@ -174,9 +213,10 @@ void centerText(
     Canvas canvas,
     Offset position,
     String s,
-    {bool above = true,
-      required Color color}
-    ) {
+    {
+      required double relativeY,
+      required Color color,
+    }) {
   TextSpan span = TextSpan(
     text: s,
     style: TextStyle(color: color),
@@ -187,7 +227,7 @@ void centerText(
   );
   painter.layout();
   double x = position.dx - painter.width * 0.5;
-  double y = position.dy - (above ? painter.height : 0);
+  double y = position.dy + (relativeY - 0.5) * painter.height;
   painter.paint(canvas, Offset(x, y));
 }
 
@@ -198,26 +238,32 @@ class _ResultPainter extends CustomPainter {
 
   @override
   void paint(ui.Canvas canvas, ui.Size size) {
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = Colors.white,
+    );
     if (result != null) {
       int w = result!.testCase.sampleFieldWidth;
       int h = result!.testCase.sampleFieldHeight;
-      var buf = result!.result;
-      Paint paint = Paint();
-      for (int yi = 0; yi < h; yi++) {
-        for (int xi = 0; xi < w; xi++) {
-          int c = 255 - buf[yi * w + xi];
-          paint.color = Color.fromARGB(0xff, c, c, c);
-          canvas.drawRect(Rect.fromLTWH(xi.toDouble(), yi.toDouble(), 1, 1), paint);
-        }
+      double x = (size.width - w) * 0.5;
+      double y = (size.height - h) * 0.5;
+      if (result!.image != null) {
+        canvas.drawImage(result!.image!, Offset(x, y), Paint());
+      } else {
+        canvas.drawRect(
+          Rect.fromLTWH(x, y, w.toDouble(), h.toDouble()),
+          Paint()..color = Colors.yellow,
+        );
       }
       double elapsed = result!.computeTime.inMicroseconds / 1000.0;
       centerText(
         canvas, Offset(size.width * 0.5, 0), '$elapsed ms',
+        relativeY: 0.5,
         color: Colors.blue.shade800,
       );
       centerText(
         canvas, Offset(size.width * 0.5, size.height), result!.algorithm.name,
-        above: false,
+        relativeY: -0.5,
         color: Colors.blue.shade800,
       );
     }
@@ -228,38 +274,32 @@ class _ResultPainter extends CustomPainter {
 }
 
 class _DiffResultPainter extends CustomPainter {
-  _DiffResultPainter({required this.resultA, required this.resultB});
+  _DiffResultPainter({required this.result});
 
-  final BlurResult? resultA;
-  final BlurResult? resultB;
+  final BlurResult? result;
 
   @override
   void paint(ui.Canvas canvas, ui.Size size) {
-    if (resultA != null && resultB != null) {
-      int w = resultA!.testCase.sampleFieldWidth;
-      int h = resultA!.testCase.sampleFieldHeight;
-      var bufA = resultA!.result;
-      var bufB = resultB!.result;
-      Paint paint = Paint();
-      int maxDiff = 0;
-      int totalDiff = 0;
-      for (int yi = 0; yi < h; yi++) {
-        for (int xi = 0; xi < w; xi++) {
-          int diff = (bufA[yi * w + xi] - bufB[yi * w + xi]).abs();
-          maxDiff = max(maxDiff, diff);
-          totalDiff += diff;
-          paint.color = Color.fromARGB(0xff, 0xff, 255 - diff, 0xff);
-          canvas.drawRect(Rect.fromLTWH(xi.toDouble(), yi.toDouble(), 1, 1), paint);
-        }
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = Colors.white,
+    );
+    if (result != null) {
+      int w = result!.testCase.sampleFieldWidth;
+      int h = result!.testCase.sampleFieldHeight;
+      double x = (size.width - w) * 0.5;
+      double y = (size.height - h) * 0.5;
+      if (result!.refDiffImage != null) {
+        canvas.drawImage(result!.refDiffImage!, Offset(x, y), Paint());
       }
       centerText(
-        canvas, Offset(size.width * 0.5, 0), 'max diff = $maxDiff',
+        canvas, Offset(size.width * 0.5, 0), 'diff range = [${result!.minDiff}, ${result!.maxDiff}]',
+        relativeY: 0.5,
         color: Colors.blue.shade800,
       );
-      double average = (1000 * totalDiff / (w * h)).round() / 1000.0;
       centerText(
-        canvas, Offset(size.width * 0.5, size.height), 'avg diff = $average',
-        above: false,
+        canvas, Offset(size.width * 0.5, size.height), 'diff average = ${result!.avgDiff}',
+        relativeY: -0.5,
         color: Colors.blue.shade800,
       );
     }

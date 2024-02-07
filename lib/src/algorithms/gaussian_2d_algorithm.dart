@@ -16,11 +16,20 @@ class Gaussian2DAlgorithm extends BlurAlgorithm {
   }
 
   // Returns a list of gaussian coefficients computed over the
-  // range [-sampleCount + 0.5, +sampleCount - 0.5]
+  // range [-sampleCount, +sampleCount]
   Float64List getGaussians(int sampleCount, double sigma) {
-    var list = Float64List(sampleCount * 2);
-    for (int i = -sampleCount; i < sampleCount; i++) {
-      list[i+sampleCount] = gaussianCoefficient(i + 0.5, sigma);
+    var list = Float64List(sampleCount * 2 + 1);
+    double total = 0.0;
+    for (int i = -sampleCount; i <= sampleCount; i++) {
+      double gauss = gaussianCoefficient(i.toDouble(), sigma);
+      list[i+sampleCount] = gauss;
+      total += gauss;
+    }
+    // for small sigmas the center weight might be > 1.0
+    // for larger sigmas the total might be only about .997
+    // This step normalizes both conditions
+    for (int i = 0; i < list.length; i++) {
+      list[i] /= total;
     }
     return list;
   }
@@ -36,21 +45,18 @@ class Gaussian2DAlgorithm extends BlurAlgorithm {
     List<Float64List> hBlurs = List<Float64List>.generate(gaussiansY.length, (i) => Float64List(outW));
     double y = (testCase.roundRect.rectSize.height - testCase.sampleFieldHeight) * 0.5 + 0.5;
     for (int j = 0; j < outH; j++, y += 1.0) {
-      Float64List nextBlur = hBlurs[0];
-      for (int k = 1; k < gaussiansY.length; k++) {
-        hBlurs[k-1] = hBlurs[k];
-      }
+      Float64List newBlur = hBlurs.removeAt(0);
       double x = (testCase.roundRect.rectSize.width - testCase.sampleFieldWidth) * 0.5 + 0.5;
       for (int i = 0; i < outW; i++, x += 1.0) {
         double total = 0.0;
-        for (int si = -samplesX; si < samplesX; si++) {
+        for (int si = -samplesX; si <= samplesX; si++) {
           if (testCase.roundRect.contains(Offset(y + samplesY, x + si))) {
             total += gaussiansX[si + samplesX];
           }
         }
-        nextBlur[i] = total;
+        newBlur[i] = total;
       }
-      hBlurs[gaussiansY.length - 1] = nextBlur;
+      hBlurs.add(newBlur);
       for (int i = 0; i < outW; i++) {
         double total = 0.0;
         for (int sj = 0; sj < gaussiansY.length; sj++) {

@@ -27,11 +27,15 @@ class Vec2 {
 
 // License: CC0 (http://creativecommons.org/publicdomain/zero/1.0/)
 class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
+  static final double kSqrtTwoPi = sqrt(2.0 * pi);
+  static final double kSqrtHalf = sqrt(0.5);
+
   @override String get name => 'Evan Wallace';
 
   // A standard gaussian function, used for weighting samples
   static double gaussian(double x, double sigma) {
-    return exp(-(x * x) / (2.0 * sigma * sigma)) / (sqrt(2.0 * pi) * sigma);
+    double relX = x / sigma;
+    return exp(relX * relX * -0.5) / (kSqrtTwoPi * sigma);
   }
 
   // This approximates the error function, needed for the gaussian integral
@@ -48,7 +52,7 @@ class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
   static double roundedBoxShadowX(double x, double y, double sigma, double corner, Vec2 halfSize) {
     double delta = min(halfSize.y - corner - y.abs(), 0.0);
     double curved = halfSize.x - corner + sqrt(max(0.0, corner * corner - delta * delta));
-    Vec2 integral = erf((Vec2(-curved, curved) + x) * (sqrt(0.5) / sigma)) * 0.5 + 0.5;
+    Vec2 integral = erf((Vec2(-curved, curved) + x) * (kSqrtHalf / sigma)) * 0.5 + 0.5;
     return integral.y - integral.x;
   }
 
@@ -61,18 +65,18 @@ class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
     // point = point.sub(center);
 
     // The signal is only non-zero in a limited range, so don't waste samples
-    double low = point.y - halfSize.y;
-    double high = point.y + halfSize.y;
-    double start = (-3.0 * sigma).clamp(low, high);
-    double end = (3.0 * sigma).clamp(low, high);
+    double start = (point.y - 3.0 * sigma).clamp(-halfSize.y, halfSize.y);
+    double end = (point.y + 3.0 * sigma).clamp(-halfSize.y, halfSize.y);
 
     // Accumulate samples (we can get away with surprisingly few samples)
-    double step = (end - start) / 4.0;
-    double y = start + step * 0.5;
+    const int steps = 4;
+    double stepSize = (end - start) / steps;
+    double stepY = start + stepSize * 0.5;
     double value = 0.0;
-    for (int i = 0; i < 4; i++) {
-      value += roundedBoxShadowX(point.x, point.y - y, sigma, corner, halfSize) * gaussian(y, sigma) * step;
-      y += step;
+    for (int i = 0; i < steps; i++) {
+      value += (roundedBoxShadowX(point.x, stepY, sigma, corner, halfSize) *
+          gaussian(point.y - stepY, sigma) * stepSize);
+      stepY += stepSize;
     }
 
     return value;
@@ -85,9 +89,9 @@ class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
     int h = testCase.sampleFieldHeight;
     double sigma = testCase.blurSigmas.width;
     double corner = testCase.roundRect.cornerRadii.width;
-    double y = 0.5 - testCase.sampleDistanceY - halfSize.y;
+    double y = 0.0 - testCase.sampleDistanceY - halfSize.y;
     for (int j = 0; j < h; j++, y += 1.0) {
-      double x = 0.5 - testCase.sampleDistanceX - halfSize.x;
+      double x = 0.0 - testCase.sampleDistanceX - halfSize.x;
       for (int i = 0; i < w; i++, x += 1.0) {
         double sample = roundedBoxShadow(halfSize, Vec2(x, y), sigma, corner);
         output[j * w + i] = (sample * 255.0).round().toInt();
