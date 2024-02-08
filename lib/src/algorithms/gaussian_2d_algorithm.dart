@@ -10,9 +10,9 @@ class Gaussian2DAlgorithm extends BlurAlgorithm {
 
   @override String get name => 'Gaussian';
 
-  double gaussianCoefficient(double x, double sigma) {
-    var variance = sigma * sigma;
-    return exp(-0.5 * x * x / variance) / (kSqrtTwoPi * sigma);
+  double gaussianCoefficient(double v, double sigma) {
+    v /= sigma;
+    return exp(-0.5 * v * v) / (kSqrtTwoPi * sigma);
   }
 
   // Returns a list of gaussian coefficients computed over the
@@ -43,10 +43,10 @@ class Gaussian2DAlgorithm extends BlurAlgorithm {
     var gaussiansX = getGaussians(samplesX, testCase.blurSigmas.width);
     var gaussiansY = getGaussians(samplesY, testCase.blurSigmas.height);
     List<Float64List> hBlurs = List<Float64List>.generate(gaussiansY.length, (i) => Float64List(outW));
-    double y = (testCase.roundRect.rectSize.height - testCase.sampleFieldHeight) * 0.5 + 0.5;
+    double y = testCase.sampleStartY + 0.5;
     for (int j = 0; j < outH; j++, y += 1.0) {
+      double x = testCase.sampleStartX + 0.5;
       Float64List newBlur = hBlurs.removeAt(0);
-      double x = (testCase.roundRect.rectSize.width - testCase.sampleFieldWidth) * 0.5 + 0.5;
       for (int i = 0; i < outW; i++, x += 1.0) {
         double total = 0.0;
         for (int si = -samplesX; si <= samplesX; si++) {

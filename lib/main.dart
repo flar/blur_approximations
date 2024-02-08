@@ -91,10 +91,16 @@ class _MyHomePageState extends State<MyHomePage> {
       maxDiff = max(maxDiff, diff);
       totalDiff += diff.abs();
       if (diff < 0) {
+        // the more negative the diff,
+        // the more the algorithm underestimated the shadow,
+        // the redder the image will be
         pixels[i * 4]     = 0xff;         // red
         pixels[i * 4 + 1] = 0xff + diff;  // green
         pixels[i * 4 + 2] = 0xff + diff;  // blue
       } else {
+        // the more positive the diff,
+        // the more the algorithm overestimated the shadow,
+        // the bluer the image will be
         pixels[i * 4]     = 0xff - diff;  // red
         pixels[i * 4 + 1] = 0xff - diff;  // green
         pixels[i * 4 + 2] = 0xff;         // blue
@@ -113,7 +119,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _asyncMethod() async {
     RoundRect rr = RoundRect(
-      rectSize: Size(rectWidth.value, rectHeight.value),
+      rect: Rect.fromLTWH(0, 0, rectWidth.value, rectHeight.value),
       cornerRadii: Size(cornerWidth.value, cornerHeight.value),
     );
     TestCase tc = TestCase(roundRect: rr, blurSigmas: Size(radius.value, radius.value));
@@ -199,7 +205,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   activeColor: Colors.green.shade800,
                   inactiveColor: Colors.green.shade200,
                 ),
-                Text('${radius.value}'),
+                Text('${(radius.value * 10.0).round() / 10.0}'),
               ],
             ),
           ],
@@ -245,8 +251,9 @@ class _ResultPainter extends CustomPainter {
     if (result != null) {
       int w = result!.testCase.sampleFieldWidth;
       int h = result!.testCase.sampleFieldHeight;
-      double x = (size.width - w) * 0.5;
-      double y = (size.height - h) * 0.5;
+      Offset rCenter = result!.testCase.roundRect.rect.center;
+      double x = size.width * 0.5 - (rCenter.dx - result!.testCase.sampleStartX);
+      double y = size.height * 0.5 - (rCenter.dy - result!.testCase.sampleStartY);
       if (result!.image != null) {
         canvas.drawImage(result!.image!, Offset(x, y), Paint());
       } else {
@@ -285,10 +292,9 @@ class _DiffResultPainter extends CustomPainter {
       Paint()..color = Colors.white,
     );
     if (result != null) {
-      int w = result!.testCase.sampleFieldWidth;
-      int h = result!.testCase.sampleFieldHeight;
-      double x = (size.width - w) * 0.5;
-      double y = (size.height - h) * 0.5;
+      Offset rCenter = result!.testCase.roundRect.rect.center;
+      double x = size.width * 0.5 - (rCenter.dx - result!.testCase.sampleStartX);
+      double y = size.height * 0.5 - (rCenter.dy - result!.testCase.sampleStartY);
       if (result!.refDiffImage != null) {
         canvas.drawImage(result!.refDiffImage!, Offset(x, y), Paint());
       }

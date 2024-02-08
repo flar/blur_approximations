@@ -34,8 +34,8 @@ class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
 
   // A standard gaussian function, used for weighting samples
   static double gaussian(double x, double sigma) {
-    double relX = x / sigma;
-    return exp(relX * relX * -0.5) / (kSqrtTwoPi * sigma);
+    x /= sigma;
+    return exp(x * x * -0.5) / (kSqrtTwoPi * sigma);
   }
 
   // This approximates the error function, needed for the gaussian integral
@@ -43,7 +43,7 @@ class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
     Vec2 s = x.sign;
     Vec2 a = x.abs;
     // x = 1.0 + (0.278393 + (0.230389 + 0.078108 * (a * a)) * a) * a;
-    x = a.mul(a.mul(a.mul(a) * 0.078108 + 0.230389) + 0.278393) + 1.0;
+    x = ((a.mul(a) * 0.078108 + 0.230389).mul(a) + 0.278393).mul(a) + 1.0;
     x = x.mul(x);
     return s.sub(s.div(x.mul(x)));
   }
@@ -71,12 +71,12 @@ class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
     // Accumulate samples (we can get away with surprisingly few samples)
     const int steps = 4;
     double stepSize = (end - start) / steps;
-    double stepY = start + stepSize * 0.5;
+    double sampleY = start + stepSize * 0.5;
     double value = 0.0;
     for (int i = 0; i < steps; i++) {
-      value += (roundedBoxShadowX(point.x, stepY, sigma, corner, halfSize) *
-          gaussian(point.y - stepY, sigma) * stepSize);
-      stepY += stepSize;
+      value += (roundedBoxShadowX(point.x, sampleY, sigma, corner, halfSize) *
+          gaussian(point.y - sampleY, sigma) * stepSize);
+      sampleY += stepSize;
     }
 
     return value;
@@ -84,14 +84,14 @@ class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
 
   @override
   void computeOutput(TestCase testCase, Uint8List output) {
-    Vec2 halfSize = Vec2.size(testCase.roundRect.rectSize) * 0.5;
+    Vec2 halfSize = Vec2.size(testCase.roundRect.halfSize);
     int w = testCase.sampleFieldWidth;
     int h = testCase.sampleFieldHeight;
     double sigma = testCase.blurSigmas.width;
     double corner = testCase.roundRect.cornerRadii.width;
-    double y = 0.0 - testCase.sampleDistanceY - halfSize.y;
+    double y = testCase.sampleStartY + 0.5 - testCase.roundRect.rect.center.dy;
     for (int j = 0; j < h; j++, y += 1.0) {
-      double x = 0.0 - testCase.sampleDistanceX - halfSize.x;
+      double x = testCase.sampleStartX + 0.5 - testCase.roundRect.rect.center.dx;
       for (int i = 0; i < w; i++, x += 1.0) {
         double sample = roundedBoxShadow(halfSize, Vec2(x, y), sigma, corner);
         output[j * w + i] = (sample * 255.0).round().toInt();

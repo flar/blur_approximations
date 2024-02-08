@@ -31,8 +31,8 @@ class RaphLevienSquircleAlgorithm extends BlurAlgorithm {
   void computeOutput(TestCase testCase, Uint8List output) {
     // To avoid divide by 0; potentially should be a bigger number for antialiasing.
     var sigma = max(testCase.blurSigmas.width, 1e-6);
-    var rectW = testCase.roundRect.rectSize.width;
-    var rectH = testCase.roundRect.rectSize.height;
+    var rectW = testCase.roundRect.rect.width;
+    var rectH = testCase.roundRect.rect.height;
     var radius = testCase.roundRect.cornerRadii.width;
     var fieldW = testCase.sampleFieldWidth;
     var fieldH = testCase.sampleFieldHeight;
@@ -53,15 +53,16 @@ class RaphLevienSquircleAlgorithm extends BlurAlgorithm {
 
     var exponentInv = 1.0 / exponent;
     var scale = 0.5 * computeErf7(sInv * 0.5 * (max(rectW, rectH) - 0.5 * radius));
-    for (int j = 0; j < fieldH; j++) {
-      var y = j.toDouble() + 0.5 - 0.5 * fieldH.toDouble();
+    var y = testCase.sampleStartY + 0.5 - testCase.roundRect.rect.center.dy;
+    for (int j = 0; j < fieldH; j++, y += 1.0) {
       var y0 = y.abs() - (rectH * 0.5 - r1);
       var y1 = max(y0, 0.0);
-      for (int i = 0; i < fieldW; i++) {
-        var x = i.toDouble() + 0.5 - 0.5 * fieldW.toDouble();
+      var y1exp = pow(y1, exponent);
+      var x = testCase.sampleStartX + 0.5 - testCase.roundRect.rect.center.dx;
+      for (int i = 0; i < fieldW; i++, x += 1.0) {
         var x0 = x.abs() - (rectW * 0.5 - r1);
         var x1 = max(x0, 0.0);
-        var dPos = pow(pow(x1, exponent) + pow(y1, exponent), exponentInv);
+        var dPos = pow(pow(x1, exponent) + y1exp, exponentInv);
         var dNeg = min(max(x0, y0), 0.0);
         var d = dPos + dNeg - r1;
         var z = scale * (computeErf7(sInv * (minEdge + d)) - computeErf7(sInv * d));
