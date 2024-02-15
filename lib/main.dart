@@ -53,7 +53,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  ValueNotifier<double> radius = ValueNotifier(1);
+  ValueNotifier<double> sigma = ValueNotifier(1);
   ValueNotifier<double> rectWidth = ValueNotifier(100);
   ValueNotifier<double> rectHeight = ValueNotifier(100);
   ValueNotifier<double> cornerWidth = ValueNotifier(10);
@@ -67,9 +67,13 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    radius.addListener(() { _asyncMethod(); });
+    sigma.addListener(() { _asyncMethod(); });
+    rectWidth.addListener(() { _asyncMethod(); });
+    rectHeight.addListener(() { _asyncMethod(); });
+    cornerWidth.addListener(() { _asyncMethod(); });
+    cornerHeight.addListener(() { _asyncMethod(); });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      radius.value = 20.0;
+      sigma.value = 20.0;
     });
   }
 
@@ -142,7 +146,7 @@ class _MyHomePageState extends State<MyHomePage> {
       rect: Rect.fromLTWH(0, 0, rectWidth.value, rectHeight.value),
       cornerRadii: Size(cornerWidth.value, cornerHeight.value),
     );
-    TestCase tc = TestCase(roundRect: rr, blurSigmas: Size(radius.value, radius.value));
+    TestCase tc = TestCase(roundRect: rr, blurSigmas: Size(sigma.value, sigma.value));
     var ref = await Gaussian2DAlgorithm().compute(tc);
     setState(() {
       refResult = ref;
@@ -234,26 +238,71 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
             ),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
-                const Text('blur radius'),
-                Slider(
-                  value: radius.value,
-                  min: 0.1,
-                  max: 20.0,
-                  divisions: 199,
-                  onChanged: (value) {
-                    radius.value = value;
-                  },
-                  activeColor: Colors.green.shade800,
-                  inactiveColor: Colors.green.shade200,
+                _LabeledSlider(
+                  property: sigma,
+                  minValue: 0.1,
+                  maxValue: 20.0,
+                  label: 'blur radius',
                 ),
-                Text('${(radius.value * 10.0).round() / 10.0}'),
+                _LabeledSlider(
+                  property: rectWidth,
+                  minValue: 0.1,
+                  maxValue: 100.0,
+                  label: 'rect width',
+                  roundingFactor: 1.0,
+                ),
+                _LabeledSlider(
+                  property: rectHeight,
+                  minValue: 0.1,
+                  maxValue: 100.0,
+                  label: 'rect height',
+                  roundingFactor: 1.0,
+                ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LabeledSlider extends StatelessWidget {
+  const _LabeledSlider({
+    required this.property,
+    required this.minValue,
+    required this.maxValue,
+    required this.label,
+    this.roundingFactor = 10.0,
+  });
+
+  final ValueNotifier<double> property;
+  final double minValue;
+  final double maxValue;
+  final String label;
+  final double roundingFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        // Text(label),
+        Slider(
+          value: property.value,
+          min: minValue,
+          max: maxValue,
+          divisions: 199,
+          onChanged: (value) {
+            property.value = value;
+          },
+          activeColor: Colors.green.shade800,
+          inactiveColor: Colors.green.shade200,
+        ),
+        Text('$label: ${(property.value * 10.0).round() / 10.0}'),
+      ],
     );
   }
 }

@@ -1,12 +1,14 @@
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
 class RoundRect {
-  RoundRect({required this.rect, required this.cornerRadii}) {
-    assert(cornerRadii.width >= 0 && cornerRadii.width * 2 <= rect.size.width);
-    assert(cornerRadii.height >= 0 && cornerRadii.height * 2 <= rect.size.height);
+  RoundRect({required this.rect, required Size cornerRadii}) {
     halfSize = rect.size * 0.5;
+    double cornerWidth = max(min(cornerRadii.width, halfSize.width), 0.0);
+    double cornerHeight = max(min(cornerRadii.height, halfSize.height), 0.0);
+    this.cornerRadii = Size(cornerWidth, cornerHeight);
     flatSize = Size(
       halfSize.width - cornerRadii.width,
       halfSize.height - cornerRadii.height,

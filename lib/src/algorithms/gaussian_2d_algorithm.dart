@@ -76,7 +76,7 @@ class _Gaussian2DShader extends BlurShaderInstance {
       for (int i = 0; i < outW; i++, sampleX += 1.0) {
         double total = 0.0;
         for (int si = -sampleCountX; si <= sampleCountX; si++) {
-          if (roundRect.contains(Offset(sampleY, sampleX + si))) {
+          if (roundRect.contains(Offset(sampleX + si, sampleY))) {
             total += gaussiansX[si + sampleCountX];
           }
         }
