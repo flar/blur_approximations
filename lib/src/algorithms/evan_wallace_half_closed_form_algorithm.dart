@@ -1,42 +1,39 @@
 import 'dart:math';
-import 'dart:typed_data';
-import 'dart:ui';
 
 import 'package:blur_approximations/src/blur_algorithm.dart';
 import 'package:blur_approximations/src/test_case.dart';
+import 'package:blur_approximations/src/vec2.dart';
 
-class Vec2 {
-  Vec2(this.x, this.y);
-  Vec2.size(Size size) : x = size.width, y = size.height;
+class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
+  @override String get name => 'Evan Wallace';
 
-  final double x;
-  final double y;
-
-  // sadly, no multi-type operator overloads in Dart
-  Vec2 add(Vec2 o) => Vec2(x + o.x, y + o.y);
-  Vec2 sub(Vec2 o) => Vec2(x - o.x, y - o.y);
-  Vec2 mul(Vec2 o) => Vec2(x * o.x, y * o.y);
-  Vec2 div(Vec2 o) => Vec2(x / o.x, y / o.y);
-
-  Vec2 operator+(double v) => Vec2(x + v, y + v);
-  Vec2 operator*(double v) => Vec2(x * v, y * v);
-
-  Vec2 get sign => Vec2(x.sign, y.sign);
-  Vec2 get abs => Vec2(x.abs(), y.abs());
+  @override
+  BlurShaderInstance getInstance(TestCase testCase) {
+    return _EvanWallaceHalfClosedFormShader(testCase);
+  }
 }
 
-// License: CC0 (http://creativecommons.org/publicdomain/zero/1.0/)
-class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
+class _EvanWallaceHalfClosedFormShader extends BlurShaderInstance {
   static final double kSqrtTwoPi = sqrt(2.0 * pi);
   static final double kSqrtHalf = sqrt(0.5);
-
-  @override String get name => 'Evan Wallace';
 
   // A standard gaussian function, used for weighting samples
   static double gaussian(double x, double sigma) {
     x /= sigma;
     return exp(x * x * -0.5) / (kSqrtTwoPi * sigma);
   }
+
+  _EvanWallaceHalfClosedFormShader(TestCase testCase) {
+    halfSize = Vec2.size(testCase.roundRect.halfSize);
+    sigma = testCase.blurSigmas.width;
+    corner = testCase.roundRect.cornerRadii.width;
+    center = Vec2.offset(testCase.roundRect.rect.center);
+  }
+
+  late final double corner;
+  late final double sigma;
+  late final Vec2 halfSize;
+  late final Vec2 center;
 
   // This approximates the error function, needed for the gaussian integral
   static Vec2 erf(Vec2 x) {
@@ -57,7 +54,11 @@ class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
   }
 
   // Return the mask for the shadow of a box from lower to upper
-  double roundedBoxShadow(Vec2 halfSize, Vec2 point, double sigma, double corner) {
+  static double roundedBoxShadow(
+      Vec2 point,
+      Vec2 halfSize,
+      double sigma,
+      double corner) {
     // Center everything to make the math easier
     // These transformations are now done by the calling method
     // Vec2 center = (lower.add(upper)) * 0.5;
@@ -83,19 +84,7 @@ class EvanWallaceHalfClosedFormAlgorithm extends BlurAlgorithm {
   }
 
   @override
-  void computeOutput(TestCase testCase, Uint8List output) {
-    Vec2 halfSize = Vec2.size(testCase.roundRect.halfSize);
-    int w = testCase.sampleFieldWidth;
-    int h = testCase.sampleFieldHeight;
-    double sigma = testCase.blurSigmas.width;
-    double corner = testCase.roundRect.cornerRadii.width;
-    double y = testCase.sampleStartY + 0.5 - testCase.roundRect.rect.center.dy;
-    for (int j = 0; j < h; j++, y += 1.0) {
-      double x = testCase.sampleStartX + 0.5 - testCase.roundRect.rect.center.dx;
-      for (int i = 0; i < w; i++, x += 1.0) {
-        double sample = roundedBoxShadow(halfSize, Vec2(x, y), sigma, corner);
-        output[j * w + i] = (sample * 255.0).round().toInt();
-      }
-    }
+  double sample(Vec2 position) {
+    return roundedBoxShadow(position.sub(center), halfSize, sigma, corner);
   }
 }

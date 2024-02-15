@@ -1,16 +1,33 @@
 import 'dart:math';
 import 'dart:ui' as ui;
 
-import 'package:blur_approximations/src/algorithms/even_wallace_half_closed_form_algorithm.dart';
+import 'package:blur_approximations/src/algorithms/evan_wallace_half_closed_form_algorithm.dart';
 import 'package:blur_approximations/src/algorithms/gaussian_2d_algorithm.dart';
+import 'package:blur_approximations/src/algorithms/impeller_algorithm_ed498f1.dart';
 import 'package:blur_approximations/src/algorithms/raph_levien_squircle_algorithm.dart';
 import 'package:blur_approximations/src/blur_result.dart';
 import 'package:blur_approximations/src/round_rect.dart';
 import 'package:blur_approximations/src/test_case.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
+
+  WindowOptions windowOptions = const WindowOptions(
+    size: Size(1024, 900),
+    center: true,
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.hidden,
+  );
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
+
   runApp(const MyApp());
 }
 
@@ -45,6 +62,7 @@ class _MyHomePageState extends State<MyHomePage> {
   BlurResult? refResult;
   BlurResult? sqResult;
   BlurResult? evanResult;
+  BlurResult? impellerEd498f1Result;
 
   @override
   void initState() {
@@ -93,17 +111,19 @@ class _MyHomePageState extends State<MyHomePage> {
       if (diff < 0) {
         // the more negative the diff,
         // the more the algorithm underestimated the shadow,
-        // the redder the image will be
-        pixels[i * 4]     = 0xff;         // red
+        // the bluer the image will be
+        // (the algorithm is cold)
+        pixels[i * 4]     = 0xff + diff;  // red
         pixels[i * 4 + 1] = 0xff + diff;  // green
-        pixels[i * 4 + 2] = 0xff + diff;  // blue
+        pixels[i * 4 + 2] = 0xff;         // blue
       } else {
         // the more positive the diff,
         // the more the algorithm overestimated the shadow,
-        // the bluer the image will be
-        pixels[i * 4]     = 0xff - diff;  // red
+        // the redder the image will be
+        // (the algorithm is hot)
+        pixels[i * 4]     = 0xff;         // red
         pixels[i * 4 + 1] = 0xff - diff;  // green
-        pixels[i * 4 + 2] = 0xff;         // blue
+        pixels[i * 4 + 2] = 0xff - diff;  // blue
       }
       pixels[i * 4 + 3] = 0xff;  // alpha
     }
@@ -140,6 +160,12 @@ class _MyHomePageState extends State<MyHomePage> {
     });
     makeBlurImage(evan);
     makeDiffImage(evan, ref);
+    var imp = await ImpellerCommitEd498f1Algorithm().compute(tc);
+    setState(() {
+      impellerEd498f1Result = imp;
+    });
+    makeBlurImage(imp);
+    makeDiffImage(imp, ref);
   }
 
   @override
@@ -169,6 +195,23 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 CustomPaint(
                   painter: _ResultPainter(result: sqResult),
+                  size: resultSize,
+                ),
+              ],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                CustomPaint(
+                  painter: _ResultPainter(result: refResult),
+                  size: resultSize,
+                ),
+                CustomPaint(
+                  painter: _DiffResultPainter(result: impellerEd498f1Result),
+                  size: resultSize,
+                ),
+                CustomPaint(
+                  painter: _ResultPainter(result: impellerEd498f1Result),
                   size: resultSize,
                 ),
               ],
