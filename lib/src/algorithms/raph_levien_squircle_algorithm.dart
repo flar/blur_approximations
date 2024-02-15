@@ -33,7 +33,7 @@ class _RaphLevienSquircleShader extends BlurShaderInstance {
   }
 
   _RaphLevienSquircleShader(TestCase testCase) {
-    var sigma = max(testCase.blurSigmas.width, 1e-6);
+    var sigma = max(testCase.blurSigmas.width * sqrt(2), 1e-6);
     double rectW = testCase.roundRect.rect.width;
     double rectH = testCase.roundRect.rect.height;
     var radius = testCase.roundRect.cornerRadii.width;
